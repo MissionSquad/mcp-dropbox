@@ -68,4 +68,5 @@ jobs:
 
       - name: Publish Skipped
         if: steps.publish_eligibility.outputs.can_publish != 'true'
-        run: echo "Skipping npm publish: ${{ steps.publish_eligibility.outputs.reason }}"
+        run: |
+          echo "Skipping npm publish: ${{ steps.publish_eligibility.outputs.reason }}"
