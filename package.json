@@ -2,7 +2,6 @@
   "name": "@missionsquad/mcp-dropbox",
   "version": "0.2.0",
   "description": "A Model Context Protocol server for Dropbox integration",
-  "private": true,
   "type": "module",
   "bin": {
     "dbx-mcp-server": "./build/index.js"
