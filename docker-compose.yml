@@ -1,0 +1,14 @@
+services:
+  dbx-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      LOG_LEVEL: "info"
+      ALLOWED_ORIGINS: "http://localhost:3000"
+      SHUTDOWN_TIMEOUT_MS: "30000"
+      DROPBOX_RETRY_MAX_ATTEMPTS: "3"
+      DROPBOX_RETRY_BASE_DELAY_MS: "250"

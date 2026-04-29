@@ -12,8 +12,6 @@ token
 *.cert
 credentials.txt
 *credentials*.txt
-src/config.ts
-config.ts
 
 # Logs and debugging
 *.log
@@ -54,14 +52,5 @@ dist/
 build/
 out/
 
-# Docker
-Dockerfile
-.dockerignore
-getToken
-README.md
-project_report.md
-src/test-config-update.ts
-src/test-config-update.js
-claude-config-test.json
-.gitignore
-cline-config-test.json
+# Codex
+tasks
