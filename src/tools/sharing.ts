@@ -58,7 +58,7 @@ export function registerSharingTools(server: McpServer): void {
   server.registerTool(
     'create_shared_link',
     {
-      description: 'Create a persistent Dropbox shared link suitable for public download access',
+      description: 'Preferred for reusable public download links. Create a persistent Dropbox shared link for a file or folder when you need a link that can be shared and opened later by anyone. The result includes both the normal Dropbox URL and direct_download_url for anonymous download. Defaults are optimized for public no-sign-in download, but callers should check resolved_visibility in the result because Dropbox account or team policy can downgrade public access.',
       inputSchema: createSharedLinkInputSchema
     },
     async args => {
@@ -109,7 +109,7 @@ export function registerSharingTools(server: McpServer): void {
   server.registerTool(
     'get_temporary_link',
     {
-      description: 'Return a 4-hour direct-download Dropbox URL that does not require the recipient to sign into Dropbox',
+      description: 'Preferred for short-lived anonymous download links. Return a temporary direct-download Dropbox URL for a file when you need a link that anyone can use without signing into Dropbox, but only for a limited time. The link is intended for direct file download and expires after about 4 hours.',
       inputSchema: getTemporaryLinkInputSchema
     },
     async args => {
