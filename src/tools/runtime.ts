@@ -1,20 +1,16 @@
-import type { Dropbox, DropboxResponse } from 'dropbox'
-import { UserError, type Context, type ContentResult } from '@missionsquad/fastmcp'
+import type { DropboxResponse } from 'dropbox'
+import type { CallToolResult, ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 
-import { appConfig, resolveRequestConfig } from '../config.js'
-import { createDropboxClient } from '../dropbox/client-factory.js'
+import { getAppContext } from '../app-context.js'
 import { withDropboxRetry } from '../dropbox/retry.js'
-import { resolveDelegationSelectors } from '../dropbox/team-member-resolver.js'
 import type { PathRoot } from '../dropbox/path-root.js'
-import { mapDropboxError } from '../errors/map-dropbox-error.js'
 import { logger } from '../logger.js'
+import type { ToolContext } from './registry.js'
 
 export interface PollOptions {
   maxPollAttempts?: number
   pollIntervalMs?: number
 }
-
-export type ToolContext = Context<undefined>
 
 export function normalizeDropboxPath(path: string): string {
   if (!path || path === '/') {
@@ -33,46 +29,48 @@ export async function executeDropboxTool<T>(
   endpoint: string,
   pathRoot: PathRoot | undefined,
   context: ToolContext,
-  callback: (client: Dropbox) => Promise<T>
+  callback: (client: import('dropbox').Dropbox) => Promise<T>
 ): Promise<T> {
-  const requestConfig = resolveRequestConfig(context.extraArgs, appConfig)
-  const delegation = await resolveDelegationSelectors(
-    requestConfig.accessToken,
-    requestConfig.email
-  )
-  const client = createDropboxClient(requestConfig.accessToken, {
-    pathRoot,
-    selectUser: delegation.selectUser,
-    selectAdmin: delegation.selectAdmin
-  })
+  const linkedAccountId = context.authInfo?.extra?.linkedAccountId
   const startedAt = Date.now()
 
+  if (typeof linkedAccountId !== 'string' || linkedAccountId.length === 0) {
+    throw new Error('Missing linked Dropbox account context. Reconnect Dropbox and retry.')
+  }
+
   try {
-    const result = await callback(client)
+    const { dropboxAccountService } = getAppContext()
+    const execution = await dropboxAccountService.executeForLinkedAccount(
+      linkedAccountId,
+      pathRoot,
+      endpoint,
+      callback
+    )
 
     logger.info(
       {
         toolName,
         latency_ms: Date.now() - startedAt,
         dropbox_endpoint: endpoint,
-        extraArgKeys: context.extraArgs ? Object.keys(context.extraArgs) : []
+        usedDelegatedUser: execution.usedDelegatedUser,
+        clientId: context.authInfo?.clientId
       },
       'Dropbox tool completed'
     )
 
-    return result
+    return execution.result
   } catch (error) {
     logger.error(
       {
         err: error,
         toolName,
         dropbox_endpoint: endpoint,
-        extraArgKeys: context.extraArgs ? Object.keys(context.extraArgs) : []
+        clientId: context.authInfo?.clientId
       },
       'Dropbox tool failed'
     )
 
-    throw mapDropboxError(error, endpoint)
+    throw error
   }
 }
 
@@ -108,13 +106,13 @@ export async function pollAsyncJob<T>(
     }
 
     if (tag === 'failed') {
-      throw new UserError(`Dropbox ${endpoint} async job failed`)
+      throw new Error(`Dropbox ${endpoint} async job failed`)
     }
 
     await wait(pollIntervalMs)
   }
 
-  throw new UserError(`Dropbox ${endpoint} async job did not complete in time`)
+  throw new Error(`Dropbox ${endpoint} async job did not complete in time`)
 }
 
 export function parseBase64Content(content: string): Buffer {
@@ -127,13 +125,13 @@ export function buildDirectDownloadUrl(sharedUrl: string): string {
   return url.toString()
 }
 
-export function createToolTextResult(payload: unknown): ContentResult {
+export function createToolTextResult(payload: unknown): CallToolResult {
   return {
     content: [
       {
         type: 'text',
         text: JSON.stringify(payload, null, 2)
       }
-    ]
+    ] as ContentBlock[]
   }
 }

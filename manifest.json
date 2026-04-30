@@ -1,26 +1,6 @@
 {
   "name": "@missionsquad/mcp-dropbox",
-  "version": "0.2.1",
-  "description": "MissionSquad-compatible Dropbox MCP server with hidden secret injection support.",
-  "transportType": "stdio",
-  "secretNames": [
-    "accessToken",
-    "email"
-  ],
-  "secretFields": [
-    {
-      "name": "accessToken",
-      "label": "Dropbox access token",
-      "description": "Dropbox access token for the current user.",
-      "required": true,
-      "inputType": "password"
-    },
-    {
-      "name": "email",
-      "label": "Dropbox account email",
-      "description": "Dropbox account email. For Dropbox Business team tokens, this lets the server resolve the correct team member automatically.",
-      "required": false,
-      "inputType": "password"
-    }
-  ]
+  "version": "0.3.0",
+  "description": "Standalone Dropbox MCP server using Streamable HTTP, external OAuth, and persisted Dropbox refresh tokens.",
+  "transportType": "streamable_http"
 }

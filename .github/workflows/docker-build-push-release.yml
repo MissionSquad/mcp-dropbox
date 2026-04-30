@@ -1,4 +1,4 @@
-name: Docker Build and Push
+name: Docker Build and Publish
 
 on:
   push:
@@ -6,43 +6,18 @@ on:
       - main
     paths-ignore:
       - '**.md'
-      - '.github/**'
   workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
-
-env:
-  REGISTRY: ghcr.io
-
 jobs:
-  build-push-release:
+  docker:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve package metadata
-        id: package
-        shell: bash
-        run: |
-          PACKAGE_NAME="$(node -p "require('./package.json').name")"
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          OWNER_LOWER="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          IMAGE_NAME="${OWNER_LOWER}/${REPO_NAME}"
-
-          echo "package_name=${PACKAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "package_version=${PACKAGE_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "owner_lower=${OWNER_LOWER}" >> "$GITHUB_OUTPUT"
-          echo "image_name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -62,60 +37,30 @@ jobs:
       - name: Run Typecheck
         run: npm run typecheck
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/missionsquad/mcp-dropbox
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ github.ref_name }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ steps.package.outputs.image_name }}
-          tags: |
-            type=raw,value=${{ steps.package.outputs.package_version }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build and push Docker image
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ github.event.repository.name }}-docker
-          cache-to: type=gha,mode=max,scope=${{ github.event.repository.name }}-docker
-
-      - name: Get Pull Request Messages
-        id: pr-messages
-        shell: bash
-        run: |
-          PR_MESSAGES=$(git log --merges --format="%b" @~1..HEAD | sed 's/^/* /')
-          echo "PR_MESSAGES<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$PR_MESSAGES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Create Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.package.outputs.package_version }}
-          release_name: Release v${{ steps.package.outputs.package_version }}
-          body: |
-            ## Docker Image (GHCR)
-            Image: ${{ env.REGISTRY }}/${{ steps.package.outputs.image_name }}:${{ steps.package.outputs.package_version }}
-
-            ## Pull Request Messages
-            ${{ steps.pr-messages.outputs.PR_MESSAGES }}
-          draft: false
-          prerelease: false

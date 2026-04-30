@@ -1,190 +1,152 @@
 # mcp-dropbox
 
-`@missionsquad/mcp-dropbox` is a MissionSquad-compatible Dropbox MCP server designed for **stdio installation inside the platform**. User authentication is handled through MissionSquad hidden secret injection, not through visible tool arguments and not through MCP OAuth on the server itself.
+`@missionsquad/mcp-dropbox` is a standalone Dropbox MCP server that runs over **Streamable HTTP**.
 
-## MissionSquad Runtime Model
+MissionSquad connects to this server through external MCP OAuth. This server then manages the real Dropbox OAuth lifecycle internally and persists Dropbox refresh tokens in an encrypted SQLite database on a mounted volume.
 
-This package is intended to run as a shared stdio MCP server under `mcp-api`.
+## Architecture
 
-The expected auth flow is:
+There are two auth boundaries:
 
-1. The server is installed in MissionSquad as a stdio package
-2. The server definition declares hidden fields:
-   - `accessToken`
-   - `email`
-3. Each user saves their Dropbox credentials through MissionSquad’s server secret UI
-4. `mcp-api` injects those values per tool call
-5. The server reads them from FastMCP `context.extraArgs`
-6. If `email` is present, the server resolves it to the correct Dropbox `dbmid:` identifier and caches the lookup in an in-memory LRU cache
+1. `mcp-api` authenticates to `mcp-dropbox`
+2. `mcp-dropbox` authenticates to Dropbox
 
-Important rules:
+MissionSquad stores only the OAuth state needed to call this MCP server.
 
-- `accessToken` and `email` are intentionally **not** part of the tool schemas
-- the LLM never needs to provide auth values directly
-- environment variables remain only as a **local standalone fallback**
+`mcp-dropbox` stores:
 
-## Hidden Secret Contract
+- Dropbox refresh tokens
+- cached Dropbox access tokens and expiry
+- linked Dropbox account metadata
+- MCP OAuth authorization codes, access tokens, refresh tokens, and browser session state
 
-### `secretNames`
+## HTTP Surface
 
-```json
-["accessToken", "email"]
-```
+Primary MCP endpoints:
 
-### `secretFields`
+- `POST /mcp`
+- `GET /mcp`
+- `DELETE /mcp`
+- `GET /healthz`
 
-```json
-[
-  {
-    "name": "accessToken",
-    "label": "Dropbox access token",
-    "description": "Dropbox access token for the current user.",
-    "required": true,
-    "inputType": "password"
-  },
-  {
-    "name": "email",
-    "label": "Dropbox account email",
-    "description": "Dropbox account email. For Dropbox Business team tokens, this lets the server resolve the correct team member automatically.",
-    "required": false,
-    "inputType": "password"
-  }
-]
-```
+OAuth and discovery endpoints:
 
-## Local Standalone Fallback
+- `/.well-known/oauth-protected-resource/mcp`
+- `/.well-known/oauth-authorization-server`
+- `/authorize`
+- `/token`
+- `/revoke`
+- `/oauth/dropbox/start`
+- `/oauth/dropbox/callback`
 
-For local development outside MissionSquad, you can use `.env`:
+## Persistence
+
+The server uses:
+
+- SQLite on a mounted persistent volume
+- default database path: `/data/mcp-dropbox.sqlite`
+- AES-256-GCM encryption for sensitive persisted fields
+
+This deployment assumes one active writer instance per database file.
+
+## Required Configuration
 
 ```env
-DROPBOX_ACCESS_TOKEN=
-DROPBOX_EMAIL=
+PORT=3000
+HOST=0.0.0.0
+PUBLIC_BASE_URL=https://dropboxmcp.example.com
+MCP_PATH=/mcp
+ALLOWED_ORIGINS=https://app.missionsquad.ai
+
+SQLITE_PATH=/data/mcp-dropbox.sqlite
+ENCRYPTION_KEY=replace-me
+
+MCP_OAUTH_CLIENT_ID=missionsquad-dropbox
+MCP_OAUTH_CLIENT_SECRET=replace-me
+MCP_OAUTH_REDIRECT_URIS=https://api.missionsquad.ai/v1/mcp/oauth/callback
+
+DROPBOX_APP_KEY=replace-me
+DROPBOX_APP_SECRET=replace-me
+DROPBOX_REDIRECT_URI=https://dropboxmcp.example.com/oauth/dropbox/callback
+DROPBOX_SCOPES=account_info.read,files.metadata.read,files.metadata.write,files.content.read,files.content.write,sharing.read,sharing.write
+
 LOG_LEVEL=info
 DROPBOX_RETRY_MAX_ATTEMPTS=3
 DROPBOX_RETRY_BASE_DELAY_MS=250
 ```
 
-Hidden MissionSquad values always take precedence over these local env fallbacks.
+Optional local Dropbox fallback for standalone testing only:
 
-For Dropbox Business team tokens:
-
-- users should set `email` to their Dropbox team email
-- users do not need to find `dbmid:` identifiers manually; the server resolves the email automatically and caches the result
-
-## Running Locally
-
-### Node
-
-```bash
-npm install
-npm run build
-npm start
+```env
+DROPBOX_ACCESS_TOKEN=
+DROPBOX_EMAIL=
 ```
 
-This starts the stdio MCP server. It is meant to be launched by an MCP client or by MissionSquad `mcp-api`, not browsed to over HTTP.
+## MissionSquad Registration
 
-### Docker
-
-The container image runs the same stdio entrypoint:
-
-```bash
-docker build -t mcp-dropbox .
-docker run --rm -it \
-  -e DROPBOX_ACCESS_TOKEN=... \
-  -e DROPBOX_EMAIL=user@example.com \
-  mcp-dropbox
-```
-
-## Tool Reference
-
-All tool auth is hidden. Examples below show only the LLM-visible arguments.
-
-### Common Input: `path_root`
-
-All tools accept optional `path_root` with one of these shapes:
+Register the deployed server as:
 
 ```json
-{ ".tag": "home" }
+{
+  "source": "external",
+  "transportType": "streamable_http",
+  "authMode": "oauth2",
+  "url": "https://dropboxmcp.example.com/mcp"
+}
 ```
 
-```json
-{ ".tag": "root", "root": "1234567890" }
-```
+The first implementation is intended to use external OAuth `registrationMode: "manual"` with the configured:
 
-```json
-{ ".tag": "namespace_id", "namespace_id": "1234567890" }
-```
+- `MCP_OAUTH_CLIENT_ID`
+- `MCP_OAUTH_CLIENT_SECRET`
 
-### File Operations
-
-| Tool | Input schema | Output schema | Example invocation |
-| --- | --- | --- | --- |
-| `list_folder` | `path?: string`, `recursive?: boolean`, `include_media_info?: boolean`, `include_deleted?: boolean`, `include_has_explicit_shared_members?: boolean`, `include_mounted_folders?: boolean`, `limit?: integer`, `include_non_downloadable_files?: boolean`, `path_root?` | Dropbox `files.ListFolderResult` | `{"path":"/Docs","recursive":false}` |
-| `list_files` | Same as `list_folder`; deprecated alias | Dropbox `files.ListFolderResult` | `{"path":"/Docs"}` |
-| `list_folder_continue` | `cursor: string`, `path_root?` | Dropbox `files.ListFolderResult` | `{"cursor":"cursor-1"}` |
-| `get_metadata` | `path: string`, `include_media_info?: boolean`, `include_deleted?: boolean`, `include_has_explicit_shared_members?: boolean`, `path_root?` | Dropbox metadata object from `filesGetMetadata` | `{"path":"/Docs/report.pdf"}` |
-| `create_folder` | `path: string`, `autorename?: boolean`, `path_root?` | Dropbox `files.CreateFolderResult` | `{"path":"/Docs/New Folder"}` |
-| `delete` | `path: string`, `parent_rev?: string`, `path_root?` | Dropbox `files.DeleteResult` | `{"path":"/Docs/old.txt"}` |
-| `delete_batch` | `entries: [{ path: string, parent_rev?: string }]`, `poll_interval_ms?: integer`, `max_poll_attempts?: integer`, `path_root?` | Dropbox completed batch delete result | `{"entries":[{"path":"/Docs/a.txt"},{"path":"/Docs/b.txt"}]}` |
-| `move` | `from_path: string`, `to_path: string`, `allow_shared_folder?: boolean`, `autorename?: boolean`, `allow_ownership_transfer?: boolean`, `path_root?` | Dropbox `files.RelocationResult` | `{"from_path":"/Docs/a.txt","to_path":"/Archive/a.txt"}` |
-| `move_batch` | `entries: [{ from_path: string, to_path: string }]`, `autorename?: boolean`, `allow_ownership_transfer?: boolean`, `poll_interval_ms?: integer`, `max_poll_attempts?: integer`, `path_root?` | Dropbox completed batch move result | `{"entries":[{"from_path":"/Docs/a.txt","to_path":"/Archive/a.txt"}]}` |
-| `copy` | `from_path: string`, `to_path: string`, `allow_shared_folder?: boolean`, `autorename?: boolean`, `allow_ownership_transfer?: boolean`, `path_root?` | Dropbox `files.RelocationResult` | `{"from_path":"/Docs/a.txt","to_path":"/Copies/a.txt"}` |
-| `copy_batch` | `entries: [{ from_path: string, to_path: string }]`, `autorename?: boolean`, `poll_interval_ms?: integer`, `max_poll_attempts?: integer`, `path_root?` | Dropbox completed batch copy result | `{"entries":[{"from_path":"/Docs/a.txt","to_path":"/Copies/a.txt"}]}` |
-
-### Upload and Download
-
-| Tool | Input schema | Output schema | Example invocation |
-| --- | --- | --- | --- |
-| `upload_file` | `path: string`, `content: string` (base64), `mode?: {".tag":"add"|"overwrite"} | {".tag":"update","update":"rev"}`, `autorename?: boolean`, `client_modified?: ISO datetime`, `mute?: boolean`, `strict_conflict?: boolean`, `content_hash?: string`, `path_root?` | Dropbox `files.FileMetadata` | `{"path":"/Docs/hello.txt","content":"SGVsbG8="}` |
-| `upload_file_chunked` | Same as `upload_file` plus `chunk_size_bytes?: integer`; auto-routes to direct upload at `<=150 MB` and upload sessions above that | `{ "route": "direct"|"chunked", "result": Dropbox result }` | `{"path":"/Large/video.bin","content":"<base64>","chunk_size_bytes":8388608}` |
-| `download_file` | `path: string`, `path_root?` | `{ "metadata": Dropbox file metadata, "content_base64": string|null, "content_hash": string|null }` | `{"path":"/Docs/hello.txt"}` |
-
-### Search
-
-| Tool | Input schema | Output schema | Example invocation |
-| --- | --- | --- | --- |
-| `search` | `query: string`, `path?: string`, `max_results?: integer`, `order_by?: "relevance"|"last_modified_time"`, `file_status?: "active"|"deleted"`, `filename_only?: boolean`, `file_extensions?: string[]`, `file_categories?: ("image"|"document"|"pdf"|"spreadsheet"|"presentation"|"audio"|"video"|"folder"|"paper"|"others")[]`, `account_id?: string`, `include_highlights?: boolean`, `path_root?` | Dropbox `files.SearchV2Result` | `{"query":"report","path":"/Docs","max_results":25}` |
-| `search_file_db` | Same as `search`; deprecated alias | Dropbox `files.SearchV2Result` | `{"query":"report"}` |
-| `search_continue` | `cursor: string`, `path_root?` | Dropbox `files.SearchV2Result` | `{"cursor":"cursor-1"}` |
-
-### Revisions
-
-| Tool | Input schema | Output schema | Example invocation |
-| --- | --- | --- | --- |
-| `list_revisions` | `path: string`, `mode?: "path"|"id"`, `limit?: integer`, `path_root?` | Dropbox `files.ListRevisionsResult` | `{"path":"/Docs/report.docx","limit":10}` |
-| `restore_revision` | `path: string`, `rev: string`, `path_root?` | Dropbox `files.FileMetadata` | `{"path":"/Docs/report.docx","rev":"a1c10ce0dd78"}` |
-
-### Sharing
-
-| Tool | Input schema | Output schema | Example invocation |
-| --- | --- | --- | --- |
-| `create_shared_link` | `path: string`, `requested_visibility?: "public"|"team_only"|"password"` default `public`, `audience?: "public"|"team"|"no_one"|"password"|"members"` default `public`, `access?: "viewer"|"editor"|"max"|"default"`, `allow_download?: boolean` default `true`, `expires?: ISO datetime`, `link_password?: string`, `require_password?: boolean`, `path_root?` | Dropbox shared-link metadata plus `direct_download_url`, `resolved_visibility`, and optional `reused_existing_link` | `{"path":"/Docs/report.pdf","allow_download":true}` |
-| `get_temporary_link` | `path: string`, `path_root?` | Dropbox `files.GetTemporaryLinkResult` | `{"path":"/Docs/report.pdf"}` |
-| `list_shared_links` | `path?: string`, `cursor?: string`, `direct_only?: boolean`, `path_root?` | Dropbox `sharing.ListSharedLinksResult` | `{"path":"/Docs/report.pdf","direct_only":true}` |
-| `revoke_shared_link` | `url: string`, `path_root?` | `{ "revoked": true, "url": string }` | `{"url":"https://www.dropbox.com/s/example"}` |
-| `modify_shared_link_settings` | `url: string`, `settings: { requested_visibility?: "public"|"team_only"|"password", audience?: "public"|"team"|"no_one"|"password"|"members", access?: "viewer"|"editor"|"max"|"default", allow_download?: boolean, expires?: ISO datetime, link_password?: string, require_password?: boolean }`, `remove_expiration?: boolean`, `path_root?` | Updated Dropbox shared-link metadata | `{"url":"https://www.dropbox.com/s/example","settings":{"allow_download":true}}` |
-| `get_shared_link_metadata` | `url: string`, `path?: string`, `link_password?: string`, `path_root?` | Dropbox shared-link metadata | `{"url":"https://www.dropbox.com/s/example"}` |
-
-### Account
-
-| Tool | Input schema | Output schema | Example invocation |
-| --- | --- | --- | --- |
-| `get_current_account` | `path_root?` | Dropbox `users.FullAccount` | `{}` |
-| `get_space_usage` | `path_root?` | Dropbox `users.SpaceUsage` | `{}` |
-
-## Tool Selection Guidance
-
-- Use `create_shared_link` for reusable public download links
-- Use `get_temporary_link` for short-lived anonymous direct downloads
-
-## Development
+## Local Development
 
 ```bash
 npm install
 npm run build
 npm test
 npm run typecheck
+npm start
 ```
+
+## Tool Surface
+
+Registered tools:
+
+- `list_folder`
+- `list_files`
+- `list_folder_continue`
+- `get_metadata`
+- `create_folder`
+- `delete`
+- `delete_batch`
+- `move`
+- `move_batch`
+- `copy`
+- `copy_batch`
+- `upload_file`
+- `upload_file_chunked`
+- `download_file`
+- `search`
+- `search_file_db`
+- `search_continue`
+- `list_revisions`
+- `restore_revision`
+- `create_shared_link`
+- `get_temporary_link`
+- `list_shared_links`
+- `revoke_shared_link`
+- `modify_shared_link_settings`
+- `get_shared_link_metadata`
+- `get_current_account`
+- `get_space_usage`
+
+## Notes
+
+- `create_shared_link` is the reusable public-download-link tool
+- `get_temporary_link` is the short-lived anonymous direct-download tool
+- Dropbox Business delegated-member retry is preserved through the stored linked account email when available
 
 ## License
 

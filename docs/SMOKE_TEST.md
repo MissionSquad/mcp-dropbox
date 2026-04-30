@@ -1,35 +1,27 @@
 # Smoke Test
 
-## 2026-04-29 Local Transport Smoke
+## 2026-04-29 External HTTP Runtime Validation
 
-- Mode: local MCP HTTP verification with Dropbox HTTP mocked at the network layer
-- Server path: `http://127.0.0.1:3000/mcp`
+- Mode: local external Streamable HTTP validation
+- Server config:
+  - `PUBLIC_BASE_URL=http://127.0.0.1:3005`
+  - `SQLITE_PATH=/private/tmp/mcp-dropbox-smoke.sqlite`
+  - static local OAuth client config and Dropbox app config placeholders
 - Verified:
+  - `npm run build` exited `0`
+  - `npm test` exited `0`
+  - `npm run typecheck` exited `0`
+  - `docker build -t mcp-dropbox-http-refactor-check .` exited `0`
   - `GET /healthz` returned `200`
-  - unauthenticated `POST /mcp` returned `401` with `missing_dropbox_access_token`
-  - MCP initialization over Streamable HTTP succeeded and returned a session ID
-  - `listTools` returned the registered Dropbox tool set
-  - `list_folder` completed successfully over the MCP client path with Dropbox HTTP mocked via `nock`
+  - `GET /.well-known/oauth-protected-resource/mcp` returned protected resource metadata
+  - `GET /.well-known/oauth-authorization-server` returned OAuth authorization server metadata
+  - unauthenticated `POST /mcp` returned `401` and included `WWW-Authenticate` with `resource_metadata`
+  - `GET /authorize` redirected into `/oauth/dropbox/start`
+  - `GET /oauth/dropbox/start` generated a Dropbox authorization redirect with `token_access_type=offline`
 
-## Live Dropbox Status
+## Remaining Interactive Validation
 
-## 2026-04-29 Live Dropbox Smoke
-
-- Mode: real MCP HTTP server with live Dropbox API
-- Server path: `http://127.0.0.1:3013/mcp`
-- Auth mode:
-  - `Authorization: Bearer <team token>`
-  - local fallback `DROPBOX_EMAIL=<user email>`
-- Results:
-  - account: `get_current_account` succeeded for `jayson@missionsquad.ai`
-  - file operation: `create_folder` succeeded
-  - upload: `upload_file` succeeded
-  - download: `download_file` succeeded and returned matching content
-  - search: `search` call succeeded end-to-end; returned `matchCount: 0` for the just-uploaded file, which is consistent with Dropbox search indexing lag
-  - sharing (public): `create_shared_link` succeeded and returned a public `direct_download_url`
-  - sharing (temporary): `get_temporary_link` succeeded
-  - cleanup: `delete` succeeded for the temporary smoke folder
-- Smoke artifact summary:
-  - folder: `/mcp-dropbox-smoke-2026-04-29T18-29-27-499Z`
-  - file: `/mcp-dropbox-smoke-2026-04-29T18-29-27-499Z/smoke.txt`
-  - upload `content_hash`: `2f14fe5a29edfbb9906b326df5b2a46f1c9510418ac89d6c5daff2a2cfff39c9`
+- Not yet executed in this terminal session:
+  - full MissionSquad external OAuth connect completion
+  - full Dropbox browser OAuth callback completion on the new external server
+  - live Dropbox tool execution after restart on the new external server architecture

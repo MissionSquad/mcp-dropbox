@@ -2,11 +2,11 @@
 
 ## Status
 
-Implementation, automated verification, Docker validation, and the live Dropbox smoke run are complete.
+The external Streamable HTTP and OAuth refactor is implemented. Local build, test, typecheck, Docker build, and HTTP/OAuth metadata smoke all pass. Full interactive Dropbox OAuth validation on the new external server is not yet proven in this terminal session.
 
 ## Phase 0
 
-Read the repository and the required MCP and Dropbox references, then wrote [CURRENT_ARCHITECTURE.md](./CURRENT_ARCHITECTURE.md), [REFACTOR_PLAN.md](./REFACTOR_PLAN.md), [PHASE_LOG.md](./PHASE_LOG.md), and [tasks/todo.md](../tasks/todo.md).
+Read the repository and the required MCP and Dropbox references, then wrote the architecture and refactor planning docs, including the external OAuth refactor plan in [EXTERNAL_OAUTH_REFACTOR_PLAN.md](./EXTERNAL_OAUTH_REFACTOR_PLAN.md).
 
 ## Phase 1
 
@@ -14,23 +14,23 @@ Removed the legacy single-tenant auth system, token persistence, setup scripts, 
 
 ## Phase 2
 
-Implemented the Streamable HTTP server, request-scoped auth context, origin validation, per-session transport handling, and the first working tool path on top of the new transport. Proof: [src/server.ts](../src/server.ts), [src/http](../src/http/request-context.ts), and the Phase 2 entry in [PHASE_LOG.md](./PHASE_LOG.md).
+The current runtime is an external Streamable HTTP server. The HTTP entrypoint is [src/index.ts](../src/index.ts), transport setup is in [src/server.ts](../src/server.ts), and tool registration is in [src/mcp/create-server.ts](../src/mcp/create-server.ts).
 
 ## Phase 3
 
-Implemented the full requested Dropbox tool surface with shared runtime helpers, path-root support, retry handling, and Dropbox error mapping. Proof: [src/tools](../src/tools/file-operations.ts), [src/dropbox](../src/dropbox/retry.ts), [src/errors/map-dropbox-error.ts](../src/errors/map-dropbox-error.ts), and the Phase 3 entry in [PHASE_LOG.md](./PHASE_LOG.md).
+Implemented the full Dropbox tool surface on top of the new persisted-account runtime, preserving retry handling, path-root support, and delegated-member resolution. Proof: [src/tools](../src/tools/file-operations.ts), [src/dropbox/account-service.ts](../src/dropbox/account-service.ts), [src/dropbox/team-member-resolver.ts](../src/dropbox/team-member-resolver.ts), and [src/errors/map-dropbox-error.ts](../src/errors/map-dropbox-error.ts).
 
 ## Phase 4
 
-Rebuilt the test suite around the HTTP architecture, added mocked-tool coverage and an MCP SDK integration test, and removed all skipped legacy suites. Proof: `npm test`, [tests/tools](../tests/tools/file-operations.test.ts), [tests/http](../tests/http/auth-middleware.test.ts), [tests/integration/http-mcp.test.ts](../tests/integration/http-mcp.test.ts), and the Phase 4 entry in [PHASE_LOG.md](./PHASE_LOG.md).
+Rebuilt the test suite around the current external HTTP/OAuth architecture, covering config, runtime execution against linked-account context, retry behavior, logging, team-member resolution, and tool registration. Proof: `npm test`, [tests/config.test.ts](../tests/config.test.ts), [tests/runtime.test.ts](../tests/runtime.test.ts), [tests/dropbox-retry.test.ts](../tests/dropbox-retry.test.ts), [tests/logger.test.ts](../tests/logger.test.ts), [tests/team-member-resolver.test.ts](../tests/team-member-resolver.test.ts), and [tests/tools.test.ts](../tests/tools.test.ts).
 
 ## Phase 5
 
-Implemented retry handling, structured logging with request IDs, error-code documentation, and graceful-shutdown coverage. Proof: [src/logger.ts](../src/logger.ts), [src/shutdown.ts](../src/shutdown.ts), [docs/ERROR_CODES.md](./ERROR_CODES.md), [tests/logger.test.ts](../tests/logger.test.ts), and [tests/http/shutdown.test.ts](../tests/http/shutdown.test.ts).
+Implemented retry handling, structured stderr logging, HTTP shutdown handling, OAuth token persistence, Dropbox token persistence, and updated error-behavior documentation. Proof: [src/logger.ts](../src/logger.ts), [src/shutdown.ts](../src/shutdown.ts), [src/persistence/database.ts](../src/persistence/database.ts), [src/oauth/provider.ts](../src/oauth/provider.ts), and [docs/ERROR_CODES.md](./ERROR_CODES.md).
 
 ## Phase 6
 
-Added deployment and operator-facing artifacts: rewritten README, Dockerfile, docker-compose, changelog, and smoke-test documentation. Proof: [README.md](../README.md), [Dockerfile](../Dockerfile), [docker-compose.yml](../docker-compose.yml), [CHANGELOG.md](../CHANGELOG.md), and [SMOKE_TEST.md](./SMOKE_TEST.md).
+Added and restored operator-facing artifacts for the external HTTP runtime: rewritten README, updated changelog, Dockerfile, docker-compose, GHCR workflow, and smoke-test documentation. Proof: [README.md](../README.md), [CHANGELOG.md](../CHANGELOG.md), [Dockerfile](../Dockerfile), [docker-compose.yml](../docker-compose.yml), [docs/SMOKE_TEST.md](./SMOKE_TEST.md), and [.github/workflows/docker-build-push-release.yml](../.github/workflows/docker-build-push-release.yml).
 
 ## Phase 7
 
@@ -39,5 +39,6 @@ Verification completed:
 - `npm run build`
 - `npm test`
 - `npm run typecheck`
-- `docker build -t dbx-mcp-server-test .`
-- live Dropbox MCP smoke covering file operation, upload, download, search, sharing, and account categories as documented in [SMOKE_TEST.md](./SMOKE_TEST.md)
+- `docker build -t mcp-dropbox-http-refactor-check .`
+- local HTTP/OAuth metadata smoke succeeded as documented in [SMOKE_TEST.md](./SMOKE_TEST.md)
+- full interactive Dropbox OAuth connect on the new external runtime remains to be manually proven

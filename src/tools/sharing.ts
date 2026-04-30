@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import type { FastMCP } from '@missionsquad/fastmcp'
 import { DropboxResponseError } from 'dropbox'
 
 import { baseArgsSchema, sharedLinkSettingsSchema } from './schemas.js'
 import { buildDirectDownloadUrl, callDropbox, createPathTag, createToolTextResult, executeDropboxTool, normalizeDropboxPath } from './runtime.js'
+import type { ToolRegistry } from './registry.js'
 
 const createSharedLinkInputSchema = baseArgsSchema.extend({
   path: z.string().min(1),
@@ -54,7 +54,7 @@ function toSharedLinkSettings(args: z.infer<typeof createSharedLinkInputSchema> 
   }
 }
 
-export function registerSharingTools(server: FastMCP<undefined>): void {
+export function registerSharingTools(server: ToolRegistry): void {
   server.addTool({
     name: 'create_shared_link',
     description: 'Preferred for reusable public download links. Create a persistent Dropbox shared link for a file or folder when you need a link that can be shared and opened later by anyone. The result includes both the normal Dropbox URL and direct_download_url for anonymous download. Defaults are optimized for public no-sign-in download, but callers should check resolved_visibility in the result because Dropbox account or team policy can downgrade public access.',

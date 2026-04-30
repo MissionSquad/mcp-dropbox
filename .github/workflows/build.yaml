@@ -31,6 +31,3 @@ jobs:
 
       - name: Run Typecheck
         run: npm run typecheck
-
-      - name: Validate Docker Build
-        run: docker build -t dbx-mcp-server-ci .

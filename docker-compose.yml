@@ -1,11 +1,45 @@
 services:
-  dbx-mcp-server:
+  mcp-dropbox:
+    container_name: mcp-dropbox
     build:
       context: .
       dockerfile: Dockerfile
-    stdin_open: true
-    tty: true
+    image: mcp-dropbox:local
+    restart: unless-stopped
+    init: true
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
     environment:
-      LOG_LEVEL: "info"
-      DROPBOX_RETRY_MAX_ATTEMPTS: "3"
-      DROPBOX_RETRY_BASE_DELAY_MS: "250"
+      PORT: 3000
+      HOST: 0.0.0.0
+      PUBLIC_BASE_URL: https://dropboxmcp.missionsquad.ai
+      MCP_PATH: /mcp
+      SQLITE_PATH: /data/mcp-dropbox.sqlite
+      # ALLOWED_ORIGINS: https://app.missionsquad.ai
+      # DROPBOX_REDIRECT_URI: https://dropboxmcp.missionsquad.ai/oauth/dropbox/callback
+      # DROPBOX_SCOPES: account_info.read,files.metadata.read,files.metadata.write,files.content.read,files.content.write,sharing.read,sharing.write
+      # SESSION_COOKIE_NAME: mcp_dropbox_session
+      # SESSION_TTL_HOURS: 24
+      # OAUTH_ACCESS_TOKEN_TTL_SECONDS: 3600
+      # LOG_LEVEL: info
+      # DROPBOX_RETRY_MAX_ATTEMPTS: 3
+      # DROPBOX_RETRY_BASE_DELAY_MS: 250
+    volumes:
+      - mcp_dropbox_data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:' + (process.env.PORT || '3000') + '/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mcp_dropbox_data:

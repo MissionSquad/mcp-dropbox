@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import type { FastMCP } from '@missionsquad/fastmcp'
 
 import { baseArgsSchema } from './schemas.js'
 import { callDropbox, createPathTag, createToolTextResult, executeDropboxTool, normalizeDropboxPath } from './runtime.js'
 import { logger } from '../logger.js'
+import type { ToolRegistry } from './registry.js'
 
 const fileCategorySchema = z.enum([
   'image',
@@ -35,7 +35,7 @@ const searchContinueInputSchema = baseArgsSchema.extend({
   cursor: z.string().min(1)
 })
 
-export function registerSearchTools(server: FastMCP<undefined>): void {
+export function registerSearchTools(server: ToolRegistry): void {
   server.addTool({
     name: 'search',
     description: 'Search Dropbox files and folders with search_v2',

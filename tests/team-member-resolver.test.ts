@@ -10,7 +10,7 @@ import { createDropboxClient } from '../src/dropbox/client-factory.js'
 import { resolveDelegationSelectors } from '../src/dropbox/team-member-resolver.js'
 
 describe('resolveDelegationSelectors', () => {
-  it('passes dbmid values through unchanged', async () => {
+  it('rejects non-email opaque member ids', async () => {
     await expect(resolveDelegationSelectors('token-1', 'dbmid:user-1')).rejects.toThrow(
       /valid Dropbox account email address/
     )
@@ -40,14 +40,13 @@ describe('resolveDelegationSelectors', () => {
     const second = await resolveDelegationSelectors('token-2', 'user@example.com')
 
     expect(first).toEqual({
-      selectUser: 'dbmid:user-1',
-      selectAdmin: 'dbmid:user-1'
+      selectUser: 'dbmid:user-1'
     })
     expect(second).toEqual(first)
     expect(mockClient.teamMembersGetInfo).toHaveBeenCalledTimes(1)
   })
 
-  it('does not populate selectAdmin for non-admin emails', async () => {
+  it('returns only selectUser for member emails', async () => {
     const mockClient = {
       teamMembersGetInfo: vi.fn().mockResolvedValue({
         result: [
@@ -69,8 +68,7 @@ describe('resolveDelegationSelectors', () => {
 
     const result = await resolveDelegationSelectors('token-3', 'member@example.com')
     expect(result).toEqual({
-      selectUser: 'dbmid:user-2',
-      selectAdmin: undefined
+      selectUser: 'dbmid:user-2'
     })
   })
 })

@@ -1,5 +1,4 @@
 import { DropboxResponseError } from 'dropbox'
-import { UserError } from '@missionsquad/fastmcp'
 
 interface DropboxErrorPayload {
   error_summary?: string
@@ -28,28 +27,40 @@ function getTagChain(value: unknown): string[] {
   return [tag, ...getTagChain(nested)]
 }
 
-export function mapDropboxError(error: unknown, endpoint: string): Error {
-  if (error instanceof UserError) {
-    return error
+function getDropboxErrorMessage(error: DropboxResponseError<unknown>): string {
+  const payload = (error.error ?? {}) as DropboxErrorPayload
+
+  if (typeof error.error === 'string') {
+    return error.error
   }
 
+  return payload.user_message?.text ?? payload.error_summary ?? ''
+}
+
+export function isSelectUserRequiredDropboxError(error: unknown): boolean {
+  if (!(error instanceof DropboxResponseError)) {
+    return false
+  }
+
+  const message = getDropboxErrorMessage(error)
+  return message.includes('Dropbox-API-Select-User') || message.includes('select_user')
+}
+
+export function mapDropboxError(error: unknown, endpoint: string): Error {
   if (error instanceof DropboxResponseError) {
     const payload = (error.error ?? {}) as DropboxErrorPayload
     const tagPath = getTagChain(payload.error).join('/')
-    const rawMessage =
-      typeof error.error === 'string'
-        ? error.error
-        : payload.user_message?.text ?? payload.error_summary ?? `Dropbox ${endpoint} request failed`
+    const rawMessage = getDropboxErrorMessage(error) || `Dropbox ${endpoint} request failed`
 
-    if (typeof rawMessage === 'string' && rawMessage.includes('Dropbox-API-Select-User')) {
-      return new UserError(
+    if (isSelectUserRequiredDropboxError(error)) {
+      return new Error(
         'This Dropbox token is a team token and needs a selected user context. Configure hidden argument "email" with the Dropbox account email in MissionSquad.'
       )
     }
 
     const message = rawMessage
 
-    return new UserError(
+    return new Error(
       `${message}${tagPath ? ` (Dropbox tag path: ${tagPath})` : ''}`
     )
   }
