@@ -1,8 +1,10 @@
 node_modules
 build
 .git
-.DS_Store
-npm-debug.log
-coverage
-tasks
 .github
+.env
+coverage
+*.log
+*.sqlite
+*.sqlite-*
+

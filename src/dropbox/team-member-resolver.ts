@@ -1,4 +1,3 @@
-import { UserError } from '@missionsquad/fastmcp'
 import { SuperLRU, md5 } from 'superlru'
 
 import { createDropboxClient } from './client-factory.js'
@@ -46,7 +45,7 @@ async function resolveMemberByEmail(
   const item = response.result[0]
 
   if (!item || item['.tag'] !== 'member_info') {
-    throw new UserError(
+    throw new Error(
       `Dropbox team member "${email}" was not found. Configure hidden argument "email" with a valid Dropbox account email.`
     )
   }
@@ -64,7 +63,7 @@ async function resolveMemberByEmail(
 export async function resolveDelegationSelectors(
   accessToken: string,
   email: string | undefined
-): Promise<{ selectUser?: string; selectAdmin?: string }> {
+): Promise<{ selectUser?: string }> {
   if (!email) {
     return {}
   }
@@ -76,13 +75,12 @@ export async function resolveDelegationSelectors(
   }
 
   if (!isEmail(trimmed)) {
-    throw new UserError('"email" must be a valid Dropbox account email address.')
+    throw new Error('"email" must be a valid Dropbox account email address.')
   }
 
   const member = await resolveMemberByEmail(accessToken, trimmed)
 
   return {
-    selectUser: member.teamMemberId,
-    selectAdmin: member.roleTag === 'member_only' ? undefined : member.teamMemberId
+    selectUser: member.teamMemberId
   }
 }

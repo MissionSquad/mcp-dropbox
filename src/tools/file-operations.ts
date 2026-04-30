@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import type { FastMCP } from '@missionsquad/fastmcp'
 
 import { logger } from '../logger.js'
 import { baseArgsSchema, batchPollingArgsSchema, relocationArgsSchema } from './schemas.js'
+import type { ToolRegistry } from './registry.js'
 import { callDropbox, createToolTextResult, executeDropboxTool, normalizeDropboxPath, pollAsyncJob } from './runtime.js'
 
 const listFolderInputSchema = baseArgsSchema.extend({
@@ -57,7 +57,7 @@ const copyMoveBatchInputSchema = baseArgsSchema.merge(batchPollingArgsSchema).ex
   allow_ownership_transfer: z.boolean().optional()
 })
 
-export function registerFileOperationTools(server: FastMCP<undefined>): void {
+export function registerFileOperationTools(server: ToolRegistry): void {
   server.addTool({
     name: 'list_folder',
     description: 'List files and folders in a Dropbox path',

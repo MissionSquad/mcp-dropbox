@@ -1,0 +1,7 @@
+process.env.PUBLIC_BASE_URL ??= 'http://localhost:3000'
+process.env.ENCRYPTION_KEY ??= 'test-encryption-key'
+process.env.MCP_OAUTH_CLIENT_ID ??= 'missionsquad-test-client'
+process.env.MCP_OAUTH_CLIENT_SECRET ??= 'missionsquad-test-secret'
+process.env.MCP_OAUTH_REDIRECT_URIS ??= 'http://localhost:3456/callback'
+process.env.DROPBOX_APP_KEY ??= 'dropbox-app-key'
+process.env.DROPBOX_APP_SECRET ??= 'dropbox-app-secret'

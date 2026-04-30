@@ -1,38 +1,33 @@
 #!/usr/bin/env node
 
-import { FastMCP } from '@missionsquad/fastmcp'
-
+import { createServer } from './server.js'
 import { logger } from './logger.js'
-import { routeConsoleStdoutToStderr } from './stdio-safe-console.js'
-import { registerAccountTools } from './tools/account.js'
-import { registerFileOperationTools } from './tools/file-operations.js'
-import { registerRevisionTools } from './tools/revisions.js'
-import { registerSearchTools } from './tools/search.js'
-import { registerSharingTools } from './tools/sharing.js'
-import { registerUploadDownloadTools } from './tools/upload-download.js'
+import { appConfig } from './config.js'
+import { shutdownHttpServer } from './shutdown.js'
 
-routeConsoleStdoutToStderr()
-
-const server = new FastMCP<undefined>({
-  name: 'mcp-dropbox',
-  version: '0.2.1'
-})
-
-registerFileOperationTools(server)
-registerUploadDownloadTools(server)
-registerSearchTools(server)
-registerRevisionTools(server)
-registerSharingTools(server)
-registerAccountTools(server)
+let runningServer: Awaited<ReturnType<typeof createServer>> | undefined
 
 async function main(): Promise<void> {
-  await server.start({ transportType: 'stdio' })
-  logger.info('mcp-dropbox server started successfully')
+  runningServer = await createServer()
+  runningServer.httpServer.listen(appConfig.port, appConfig.host, () => {
+    logger.info(
+      {
+        port: appConfig.port,
+        host: appConfig.host,
+        publicBaseUrl: appConfig.publicBaseUrl,
+        mcpPath: appConfig.mcpPath
+      },
+      'mcp-dropbox HTTP server started successfully'
+    )
+  })
 }
 
 async function shutdown(exitCode: number): Promise<void> {
   try {
-    await server.stop()
+    if (runningServer) {
+      await shutdownHttpServer(runningServer.httpServer)
+      await runningServer.database.close()
+    }
   } finally {
     process.exit(exitCode)
   }

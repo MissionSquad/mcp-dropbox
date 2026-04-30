@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import type { FastMCP } from '@missionsquad/fastmcp'
 
 import { baseArgsSchema } from './schemas.js'
+import type { ToolRegistry } from './registry.js'
 import { callDropbox, createPathTag, createToolTextResult, executeDropboxTool, normalizeDropboxPath } from './runtime.js'
 
 const listRevisionsInputSchema = baseArgsSchema.extend({
@@ -15,7 +15,7 @@ const restoreRevisionInputSchema = baseArgsSchema.extend({
   rev: z.string().min(1)
 })
 
-export function registerRevisionTools(server: FastMCP<undefined>): void {
+export function registerRevisionTools(server: ToolRegistry): void {
   server.addTool({
     name: 'list_revisions',
     description: 'List Dropbox file revisions',

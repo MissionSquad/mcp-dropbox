@@ -1,12 +1,12 @@
 import { z } from 'zod'
-import type { FastMCP } from '@missionsquad/fastmcp'
 
 import { baseArgsSchema } from './schemas.js'
+import type { ToolRegistry } from './registry.js'
 import { callDropbox, createToolTextResult, executeDropboxTool } from './runtime.js'
 
 const accountInputSchema = baseArgsSchema
 
-export function registerAccountTools(server: FastMCP<undefined>): void {
+export function registerAccountTools(server: ToolRegistry): void {
   server.addTool({
     name: 'get_current_account',
     description: 'Get the current Dropbox account',

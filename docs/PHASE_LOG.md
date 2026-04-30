@@ -122,3 +122,49 @@
   - `get_temporary_link`
   - `delete`
 - Smoke details recorded in [SMOKE_TEST.md](./SMOKE_TEST.md)
+
+## 2026-04-29T22:52:08-0600 MissionSquad Package Cleanup
+
+- Removed Docker and GHCR release assets because the package now ships only as a MissionSquad stdio npm package
+- Cleaned the GitHub Actions workflows so CI validates `build`, `test`, and `typecheck`, and publish handles only npm release behavior
+- Updated package-facing metadata and docs to the final hidden-secret contract:
+  - `accessToken`
+  - `email`
+- Fixed a runtime bug in delegated Dropbox Business resolution:
+  - the server now attempts Dropbox calls with the raw token first
+  - it resolves `email` into `selectUser` only when Dropbox explicitly requires delegated team-member context
+- Verification:
+  - `npm run build`
+  - `npm test`
+  - `npm run typecheck`
+  - live stdio MCP initialize and `tools/list` succeeded
+  - live Dropbox smoke succeeded for:
+    - `get_current_account`
+    - `create_folder`
+    - `upload_file`
+    - `download_file`
+    - `create_shared_link`
+    - `get_temporary_link`
+    - `delete`
+
+## 2026-04-29T23:59:00-0600 External OAuth HTTP Refactor
+
+- Replaced the MissionSquad stdio hidden-secret runtime with an external Streamable HTTP server
+- Added MCP OAuth protected-resource metadata and authorization-server metadata routes using the MCP SDK auth router
+- Added bearer-token protection on `/mcp`
+- Added SQLite persistence and AES-256-GCM encryption for persisted Dropbox secrets
+- Added OAuth authorization, token, revocation, and Dropbox connect-start/callback flow wiring
+- Rewired tool execution to resolve Dropbox auth from the authenticated linked-account context
+- Restored container deployment assets and GHCR workflow
+- Verification:
+  - `npm run build`
+  - `npm test`
+  - `npm run typecheck`
+  - `docker build -t mcp-dropbox-http-refactor-check .`
+  - local HTTP smoke:
+    - `GET /healthz`
+    - `GET /.well-known/oauth-protected-resource/mcp`
+    - `GET /.well-known/oauth-authorization-server`
+    - unauthenticated `POST /mcp` returning `401` with `resource_metadata`
+    - `GET /authorize` redirecting into `/oauth/dropbox/start`
+    - `/oauth/dropbox/start` generating a Dropbox offline authorization redirect

@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import type { FastMCP } from '@missionsquad/fastmcp'
 import type { files } from 'dropbox'
 
 import { uploadArgsSchema } from './schemas.js'
+import type { ToolRegistry } from './registry.js'
 import { callDropbox, createToolTextResult, executeDropboxTool, normalizeDropboxPath, parseBase64Content } from './runtime.js'
 
 const maxDirectUploadBytes = 150 * 1024 * 1024
@@ -76,7 +76,7 @@ async function uploadWithSession(
   return finish.result
 }
 
-export function registerUploadDownloadTools(server: FastMCP<undefined>): void {
+export function registerUploadDownloadTools(server: ToolRegistry): void {
   server.addTool({
     name: 'upload_file',
     description: 'Upload a Dropbox file up to 150 MB using /2/files/upload',

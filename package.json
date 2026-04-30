@@ -1,6 +1,6 @@
 {
   "name": "@missionsquad/mcp-dropbox",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A Model Context Protocol server for Dropbox integration",
   "type": "module",
   "bin": {
@@ -9,49 +9,28 @@
   "files": [
     "build"
   ],
-  "missionsquad": {
-    "transportType": "stdio",
-    "secretNames": [
-      "accessToken",
-      "email"
-    ],
-    "secretFields": [
-      {
-        "name": "accessToken",
-        "label": "Dropbox access token",
-        "description": "Dropbox access token for the current user.",
-        "required": true,
-        "inputType": "password"
-      },
-      {
-        "name": "email",
-        "label": "Dropbox account email",
-        "description": "Dropbox account email. For Dropbox Business team tokens, this lets the server resolve the correct team member automatically.",
-        "required": false,
-        "inputType": "password"
-      }
-    ]
-  },
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "watch": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "start": "node build/index.js"
   },
   "dependencies": {
-    "@missionsquad/fastmcp": "^1.1.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "dotenv": "^16.4.7",
     "dropbox": "^10.34.0",
+    "express": "^5.2.1",
     "pino": "^9.7.0",
+    "sqlite3": "^5.1.7",
     "superlru": "^1.4.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^20.11.24",
     "typescript": "^5.8.3",
     "vitest": "^2.1.8"
