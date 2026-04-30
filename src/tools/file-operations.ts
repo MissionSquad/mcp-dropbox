@@ -1,10 +1,9 @@
 import { z } from 'zod'
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { async as DropboxAsync } from 'dropbox'
+import type { FastMCP } from '@missionsquad/fastmcp'
 
 import { logger } from '../logger.js'
 import { baseArgsSchema, batchPollingArgsSchema, relocationArgsSchema } from './schemas.js'
-import { callDropbox, createPathTag, createToolTextResult, executeDropboxTool, normalizeDropboxPath, pollAsyncJob } from './runtime.js'
+import { callDropbox, createToolTextResult, executeDropboxTool, normalizeDropboxPath, pollAsyncJob } from './runtime.js'
 
 const listFolderInputSchema = baseArgsSchema.extend({
   path: z.string().default(''),
@@ -58,15 +57,13 @@ const copyMoveBatchInputSchema = baseArgsSchema.merge(batchPollingArgsSchema).ex
   allow_ownership_transfer: z.boolean().optional()
 })
 
-export function registerFileOperationTools(server: McpServer): void {
-  server.registerTool(
-    'list_folder',
-    {
-      description: 'List files and folders in a Dropbox path',
-      inputSchema: listFolderInputSchema
-    },
-    async args => {
-      return executeDropboxTool('list_folder', '/2/files/list_folder', args.path_root, async client => {
+export function registerFileOperationTools(server: FastMCP<undefined>): void {
+  server.addTool({
+    name: 'list_folder',
+    description: 'List files and folders in a Dropbox path',
+    parameters: listFolderInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('list_folder', '/2/files/list_folder', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/list_folder', () => client.filesListFolder({
           path: normalizeDropboxPath(args.path),
           recursive: args.recursive,
@@ -81,17 +78,15 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'list_files',
-    {
-      description: 'Deprecated alias for list_folder',
-      inputSchema: listFolderInputSchema
-    },
-    async args => {
+  server.addTool({
+    name: 'list_files',
+    description: 'Deprecated alias for list_folder',
+    parameters: listFolderInputSchema,
+    execute: async (args, context) => {
       logger.warn({ toolName: 'list_files' }, 'Deprecated tool alias invoked')
-      return executeDropboxTool('list_files', '/2/files/list_folder', args.path_root, async client => {
+      return executeDropboxTool('list_files', '/2/files/list_folder', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/list_folder', () => client.filesListFolder({
           path: normalizeDropboxPath(args.path),
           recursive: args.recursive,
@@ -106,16 +101,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'list_folder_continue',
-    {
-      description: 'Continue a Dropbox list_folder cursor',
-      inputSchema: listFolderContinueInputSchema
-    },
-    async args => {
-      return executeDropboxTool('list_folder_continue', '/2/files/list_folder/continue', args.path_root, async client => {
+  server.addTool({
+    name: 'list_folder_continue',
+    description: 'Continue a Dropbox list_folder cursor',
+    parameters: listFolderContinueInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('list_folder_continue', '/2/files/list_folder/continue', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/list_folder/continue', () => client.filesListFolderContinue({
           cursor: args.cursor
         }))
@@ -123,16 +116,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'get_metadata',
-    {
-      description: 'Get Dropbox metadata for a file or folder',
-      inputSchema: getMetadataInputSchema
-    },
-    async args => {
-      return executeDropboxTool('get_metadata', '/2/files/get_metadata', args.path_root, async client => {
+  server.addTool({
+    name: 'get_metadata',
+    description: 'Get Dropbox metadata for a file or folder',
+    parameters: getMetadataInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('get_metadata', '/2/files/get_metadata', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/get_metadata', () => client.filesGetMetadata({
           path: normalizeDropboxPath(args.path),
           include_media_info: args.include_media_info,
@@ -143,16 +134,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'create_folder',
-    {
-      description: 'Create a Dropbox folder',
-      inputSchema: createFolderInputSchema
-    },
-    async args => {
-      return executeDropboxTool('create_folder', '/2/files/create_folder_v2', args.path_root, async client => {
+  server.addTool({
+    name: 'create_folder',
+    description: 'Create a Dropbox folder',
+    parameters: createFolderInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('create_folder', '/2/files/create_folder_v2', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/create_folder_v2', () => client.filesCreateFolderV2({
           path: normalizeDropboxPath(args.path),
           autorename: args.autorename
@@ -161,16 +150,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'delete',
-    {
-      description: 'Delete a Dropbox file or folder',
-      inputSchema: deleteInputSchema
-    },
-    async args => {
-      return executeDropboxTool('delete', '/2/files/delete_v2', args.path_root, async client => {
+  server.addTool({
+    name: 'delete',
+    description: 'Delete a Dropbox file or folder',
+    parameters: deleteInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('delete', '/2/files/delete_v2', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/delete_v2', () => client.filesDeleteV2({
           path: normalizeDropboxPath(args.path),
           parent_rev: args.parent_rev
@@ -179,16 +166,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'delete_batch',
-    {
-      description: 'Delete multiple Dropbox files or folders and poll until completion',
-      inputSchema: deleteBatchInputSchema
-    },
-    async args => {
-      return executeDropboxTool('delete_batch', '/2/files/delete_batch', args.path_root, async client => {
+  server.addTool({
+    name: 'delete_batch',
+    description: 'Delete multiple Dropbox files or folders and poll until completion',
+    parameters: deleteBatchInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('delete_batch', '/2/files/delete_batch', args.path_root, context, async client => {
         const launch = await callDropbox('/2/files/delete_batch', () => client.filesDeleteBatch({
           entries: args.entries.map(entry => ({
             path: normalizeDropboxPath(entry.path),
@@ -217,16 +202,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(launch.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'move',
-    {
-      description: 'Move or rename a Dropbox file or folder',
-      inputSchema: relocationArgsSchema
-    },
-    async args => {
-      return executeDropboxTool('move', '/2/files/move_v2', args.path_root, async client => {
+  server.addTool({
+    name: 'move',
+    description: 'Move or rename a Dropbox file or folder',
+    parameters: relocationArgsSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('move', '/2/files/move_v2', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/move_v2', () => client.filesMoveV2({
           from_path: normalizeDropboxPath(args.from_path),
           to_path: normalizeDropboxPath(args.to_path),
@@ -238,16 +221,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'move_batch',
-    {
-      description: 'Move multiple Dropbox files or folders and poll until completion',
-      inputSchema: copyMoveBatchInputSchema
-    },
-    async args => {
-      return executeDropboxTool('move_batch', '/2/files/move_batch_v2', args.path_root, async client => {
+  server.addTool({
+    name: 'move_batch',
+    description: 'Move multiple Dropbox files or folders and poll until completion',
+    parameters: copyMoveBatchInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('move_batch', '/2/files/move_batch_v2', args.path_root, context, async client => {
         const launch = await callDropbox('/2/files/move_batch_v2', () => client.filesMoveBatchV2({
           entries: args.entries.map(entry => ({
             from_path: normalizeDropboxPath(entry.from_path),
@@ -278,16 +259,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(launch.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'copy',
-    {
-      description: 'Copy a Dropbox file or folder',
-      inputSchema: relocationArgsSchema
-    },
-    async args => {
-      return executeDropboxTool('copy', '/2/files/copy_v2', args.path_root, async client => {
+  server.addTool({
+    name: 'copy',
+    description: 'Copy a Dropbox file or folder',
+    parameters: relocationArgsSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('copy', '/2/files/copy_v2', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/copy_v2', () => client.filesCopyV2({
           from_path: normalizeDropboxPath(args.from_path),
           to_path: normalizeDropboxPath(args.to_path),
@@ -299,16 +278,14 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'copy_batch',
-    {
-      description: 'Copy multiple Dropbox files or folders and poll until completion',
-      inputSchema: copyMoveBatchInputSchema
-    },
-    async args => {
-      return executeDropboxTool('copy_batch', '/2/files/copy_batch_v2', args.path_root, async client => {
+  server.addTool({
+    name: 'copy_batch',
+    description: 'Copy multiple Dropbox files or folders and poll until completion',
+    parameters: copyMoveBatchInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('copy_batch', '/2/files/copy_batch_v2', args.path_root, context, async client => {
         const launch = await callDropbox('/2/files/copy_batch_v2', () => client.filesCopyBatchV2({
           entries: args.entries.map(entry => ({
             from_path: normalizeDropboxPath(entry.from_path),
@@ -338,5 +315,5 @@ export function registerFileOperationTools(server: McpServer): void {
         return createToolTextResult(launch.result)
       })
     }
-  )
+  })
 }

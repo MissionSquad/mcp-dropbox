@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { FastMCP } from '@missionsquad/fastmcp'
 
 import { baseArgsSchema } from './schemas.js'
 import { callDropbox, createPathTag, createToolTextResult, executeDropboxTool, normalizeDropboxPath } from './runtime.js'
@@ -35,15 +35,13 @@ const searchContinueInputSchema = baseArgsSchema.extend({
   cursor: z.string().min(1)
 })
 
-export function registerSearchTools(server: McpServer): void {
-  server.registerTool(
-    'search',
-    {
-      description: 'Search Dropbox files and folders with search_v2',
-      inputSchema: searchInputSchema
-    },
-    async args => {
-      return executeDropboxTool('search', '/2/files/search_v2', args.path_root, async client => {
+export function registerSearchTools(server: FastMCP<undefined>): void {
+  server.addTool({
+    name: 'search',
+    description: 'Search Dropbox files and folders with search_v2',
+    parameters: searchInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('search', '/2/files/search_v2', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/search_v2', () => client.filesSearchV2({
           query: args.query,
           options: {
@@ -65,18 +63,16 @@ export function registerSearchTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'search_file_db',
-    {
-      description: 'Deprecated alias for search',
-      inputSchema: searchInputSchema
-    },
-    async args => {
+  server.addTool({
+    name: 'search_file_db',
+    description: 'Deprecated alias for search',
+    parameters: searchInputSchema,
+    execute: async (args, context) => {
       logger.warn({ toolName: 'search_file_db' }, 'Deprecated tool alias invoked')
 
-      return executeDropboxTool('search_file_db', '/2/files/search_v2', args.path_root, async client => {
+      return executeDropboxTool('search_file_db', '/2/files/search_v2', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/search_v2', () => client.filesSearchV2({
           query: args.query,
           options: {
@@ -98,16 +94,14 @@ export function registerSearchTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'search_continue',
-    {
-      description: 'Continue a Dropbox search_v2 cursor',
-      inputSchema: searchContinueInputSchema
-    },
-    async args => {
-      return executeDropboxTool('search_continue', '/2/files/search/continue_v2', args.path_root, async client => {
+  server.addTool({
+    name: 'search_continue',
+    description: 'Continue a Dropbox search_v2 cursor',
+    parameters: searchContinueInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('search_continue', '/2/files/search/continue_v2', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/search/continue_v2', () => client.filesSearchContinueV2({
           cursor: args.cursor
         }))
@@ -115,5 +109,5 @@ export function registerSearchTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 }

@@ -21,7 +21,8 @@
   - The live Dropbox API rejected `users/get_current_account` with a `400` response stating that the provided OAuth token is for an entire Dropbox Business team, not a single Dropbox account
   - Dropbox’s error explicitly requires `Dropbox-API-Select-User` or `select_user` to target a specific team member
 - Mitigation implemented:
-  - The server now accepts optional request headers `X-Dropbox-Select-User` and `X-Dropbox-Select-Admin` and passes them through the Dropbox SDK as `selectUser` and `selectAdmin`
-  - The server also accepts local-only env fallbacks `DROPBOX_SELECT_USER` and `DROPBOX_SELECT_ADMIN` when the headers are absent
+  - The server now accepts a hidden `email` value and resolves it to the correct Dropbox team member ID automatically
+  - The server caches that resolution with an in-memory LRU cache for reuse
+  - The server also accepts the local-only env fallback `DROPBOX_EMAIL` when the hidden value is absent
 - What is still needed:
   - Nothing further for this blocker

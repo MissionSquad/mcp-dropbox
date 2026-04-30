@@ -19,7 +19,7 @@
 - Server path: `http://127.0.0.1:3013/mcp`
 - Auth mode:
   - `Authorization: Bearer <team token>`
-  - local fallback `DROPBOX_SELECT_USER=<team_member_id>`
+  - local fallback `DROPBOX_EMAIL=<user email>`
 - Results:
   - account: `get_current_account` succeeded for `jayson@missionsquad.ai`
   - file operation: `create_folder` succeeded

@@ -1,10 +1,10 @@
 import pino, { type DestinationStream, type Logger } from 'pino'
 
-import { config } from './config.js'
+import { appConfig } from './config.js'
 
 export function createLogger(destination?: DestinationStream): Logger {
   return pino({
-    level: config.logLevel,
+    level: appConfig.logLevel,
     redact: {
       paths: [
         'req.headers.authorization',
@@ -16,7 +16,7 @@ export function createLogger(destination?: DestinationStream): Logger {
       ],
       censor: '[REDACTED]'
     }
-  }, destination)
+  }, destination ?? pino.destination({ dest: 2, sync: true }))
 }
 
 export const logger = createLogger()

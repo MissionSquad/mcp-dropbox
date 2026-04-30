@@ -1,36 +1,26 @@
 {
-  "name": "dbx-mcp-server",
-  "version": "1.0.0",
-  "description": "A Model Context Protocol (MCP) server for Dropbox integration.",
-  "main": "build/index.js",
-  "author": "https://github.com/amgadabdelhafez",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/amgadabdelhafez/dbx-mcp-server.git"
-  },
-  "keywords": [
-    "dropbox",
-    "mcp",
-    "server",
-    "integration"
+  "name": "@missionsquad/mcp-dropbox",
+  "version": "0.2.1",
+  "description": "MissionSquad-compatible Dropbox MCP server with hidden secret injection support.",
+  "transportType": "stdio",
+  "secretNames": [
+    "accessToken",
+    "email"
   ],
-  "scripts": {
-    "build": "tsc",
-    "start": "node build/index.js",
-    "dev": "ts-node src/index.ts",
-    "test": "jest"
-  },
-  "dependencies": {
-    "dropbox": "^4.0.0",
-    "express": "^4.17.1",
-    "body-parser": "^1.19.0"
-  },
-  "devDependencies": {
-    "@types/node": "^14.14.31",
-    "@types/jest": "^26.0.0",
-    "typescript": "^4.1.2",
-    "ts-node": "^10.0.0",
-    "jest": "^26.6.0"
-  }
+  "secretFields": [
+    {
+      "name": "accessToken",
+      "label": "Dropbox access token",
+      "description": "Dropbox access token for the current user.",
+      "required": true,
+      "inputType": "password"
+    },
+    {
+      "name": "email",
+      "label": "Dropbox account email",
+      "description": "Dropbox account email. For Dropbox Business team tokens, this lets the server resolve the correct team member automatically.",
+      "required": false,
+      "inputType": "password"
+    }
+  ]
 }

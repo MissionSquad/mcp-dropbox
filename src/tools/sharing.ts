@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { FastMCP } from '@missionsquad/fastmcp'
 import { DropboxResponseError } from 'dropbox'
 
 import { baseArgsSchema, sharedLinkSettingsSchema } from './schemas.js'
@@ -54,15 +54,13 @@ function toSharedLinkSettings(args: z.infer<typeof createSharedLinkInputSchema> 
   }
 }
 
-export function registerSharingTools(server: McpServer): void {
-  server.registerTool(
-    'create_shared_link',
-    {
-      description: 'Preferred for reusable public download links. Create a persistent Dropbox shared link for a file or folder when you need a link that can be shared and opened later by anyone. The result includes both the normal Dropbox URL and direct_download_url for anonymous download. Defaults are optimized for public no-sign-in download, but callers should check resolved_visibility in the result because Dropbox account or team policy can downgrade public access.',
-      inputSchema: createSharedLinkInputSchema
-    },
-    async args => {
-      return executeDropboxTool('create_shared_link', '/2/sharing/create_shared_link_with_settings', args.path_root, async client => {
+export function registerSharingTools(server: FastMCP<undefined>): void {
+  server.addTool({
+    name: 'create_shared_link',
+    description: 'Preferred for reusable public download links. Create a persistent Dropbox shared link for a file or folder when you need a link that can be shared and opened later by anyone. The result includes both the normal Dropbox URL and direct_download_url for anonymous download. Defaults are optimized for public no-sign-in download, but callers should check resolved_visibility in the result because Dropbox account or team policy can downgrade public access.',
+    parameters: createSharedLinkInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('create_shared_link', '/2/sharing/create_shared_link_with_settings', args.path_root, context, async client => {
         try {
           const response = await callDropbox('/2/sharing/create_shared_link_with_settings', () => client.sharingCreateSharedLinkWithSettings({
             path: normalizeDropboxPath(args.path),
@@ -104,16 +102,14 @@ export function registerSharingTools(server: McpServer): void {
         }
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'get_temporary_link',
-    {
-      description: 'Preferred for short-lived anonymous download links. Return a temporary direct-download Dropbox URL for a file when you need a link that anyone can use without signing into Dropbox, but only for a limited time. The link is intended for direct file download and expires after about 4 hours.',
-      inputSchema: getTemporaryLinkInputSchema
-    },
-    async args => {
-      return executeDropboxTool('get_temporary_link', '/2/files/get_temporary_link', args.path_root, async client => {
+  server.addTool({
+    name: 'get_temporary_link',
+    description: 'Preferred for short-lived anonymous download links. Return a temporary direct-download Dropbox URL for a file when you need a link that anyone can use without signing into Dropbox, but only for a limited time. The link is intended for direct file download and expires after about 4 hours.',
+    parameters: getTemporaryLinkInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('get_temporary_link', '/2/files/get_temporary_link', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/get_temporary_link', () => client.filesGetTemporaryLink({
           path: normalizeDropboxPath(args.path)
         }))
@@ -121,16 +117,14 @@ export function registerSharingTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'list_shared_links',
-    {
-      description: 'List Dropbox shared links',
-      inputSchema: listSharedLinksInputSchema
-    },
-    async args => {
-      return executeDropboxTool('list_shared_links', '/2/sharing/list_shared_links', args.path_root, async client => {
+  server.addTool({
+    name: 'list_shared_links',
+    description: 'List Dropbox shared links',
+    parameters: listSharedLinksInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('list_shared_links', '/2/sharing/list_shared_links', args.path_root, context, async client => {
         const response = await callDropbox('/2/sharing/list_shared_links', () => client.sharingListSharedLinks({
           path: args.path ? normalizeDropboxPath(args.path) : undefined,
           cursor: args.cursor,
@@ -140,16 +134,14 @@ export function registerSharingTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'revoke_shared_link',
-    {
-      description: 'Revoke a Dropbox shared link',
-      inputSchema: revokeSharedLinkInputSchema
-    },
-    async args => {
-      return executeDropboxTool('revoke_shared_link', '/2/sharing/revoke_shared_link', args.path_root, async client => {
+  server.addTool({
+    name: 'revoke_shared_link',
+    description: 'Revoke a Dropbox shared link',
+    parameters: revokeSharedLinkInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('revoke_shared_link', '/2/sharing/revoke_shared_link', args.path_root, context, async client => {
         await callDropbox('/2/sharing/revoke_shared_link', () => client.sharingRevokeSharedLink({
           url: args.url
         }))
@@ -160,16 +152,14 @@ export function registerSharingTools(server: McpServer): void {
         })
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'modify_shared_link_settings',
-    {
-      description: 'Modify Dropbox shared link settings',
-      inputSchema: modifySharedLinkInputSchema
-    },
-    async args => {
-      return executeDropboxTool('modify_shared_link_settings', '/2/sharing/modify_shared_link_settings', args.path_root, async client => {
+  server.addTool({
+    name: 'modify_shared_link_settings',
+    description: 'Modify Dropbox shared link settings',
+    parameters: modifySharedLinkInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('modify_shared_link_settings', '/2/sharing/modify_shared_link_settings', args.path_root, context, async client => {
         const response = await callDropbox('/2/sharing/modify_shared_link_settings', () => client.sharingModifySharedLinkSettings({
           url: args.url,
           settings: toSharedLinkSettings(args.settings),
@@ -179,16 +169,14 @@ export function registerSharingTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'get_shared_link_metadata',
-    {
-      description: 'Get Dropbox shared link metadata',
-      inputSchema: getSharedLinkMetadataInputSchema
-    },
-    async args => {
-      return executeDropboxTool('get_shared_link_metadata', '/2/sharing/get_shared_link_metadata', args.path_root, async client => {
+  server.addTool({
+    name: 'get_shared_link_metadata',
+    description: 'Get Dropbox shared link metadata',
+    parameters: getSharedLinkMetadataInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('get_shared_link_metadata', '/2/sharing/get_shared_link_metadata', args.path_root, context, async client => {
         const response = await callDropbox('/2/sharing/get_shared_link_metadata', () => client.sharingGetSharedLinkMetadata({
           url: args.url,
           path: args.path,
@@ -198,5 +186,5 @@ export function registerSharingTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 }

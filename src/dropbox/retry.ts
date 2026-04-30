@@ -1,6 +1,6 @@
 import { DropboxResponseError } from 'dropbox'
 
-import { config } from '../config.js'
+import { appConfig } from '../config.js'
 
 function readRetryAfter(error: DropboxResponseError<unknown>): number {
   const retryAfterHeader = error.headers?.get?.('retry-after')
@@ -33,12 +33,12 @@ export async function withDropboxRetry<T>(operation: () => Promise<T>): Promise<
     } catch (error) {
       attempt += 1
 
-      if (!(error instanceof DropboxResponseError) || error.status !== 429 || attempt >= config.dropboxRetryMaxAttempts) {
+      if (!(error instanceof DropboxResponseError) || error.status !== 429 || attempt >= appConfig.dropboxRetryMaxAttempts) {
         throw error
       }
 
       const retryAfterMs = readRetryAfter(error)
-      const exponentialDelayMs = config.dropboxRetryBaseDelayMs * 2 ** (attempt - 1)
+      const exponentialDelayMs = appConfig.dropboxRetryBaseDelayMs * 2 ** (attempt - 1)
 
       await wait(retryAfterMs + exponentialDelayMs)
     }

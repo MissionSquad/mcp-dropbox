@@ -1,17 +1,20 @@
 import type { Dropbox, DropboxResponse } from 'dropbox'
-import { McpError, ErrorCode, type CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import { UserError, type Context, type ContentResult } from '@missionsquad/fastmcp'
 
+import { appConfig, resolveRequestConfig } from '../config.js'
 import { createDropboxClient } from '../dropbox/client-factory.js'
 import { withDropboxRetry } from '../dropbox/retry.js'
+import { resolveDelegationSelectors } from '../dropbox/team-member-resolver.js'
 import type { PathRoot } from '../dropbox/path-root.js'
 import { mapDropboxError } from '../errors/map-dropbox-error.js'
-import { getRequestContext } from '../http/request-context.js'
 import { logger } from '../logger.js'
 
 export interface PollOptions {
   maxPollAttempts?: number
   pollIntervalMs?: number
 }
+
+export type ToolContext = Context<undefined>
 
 export function normalizeDropboxPath(path: string): string {
   if (!path || path === '/') {
@@ -29,13 +32,18 @@ export async function executeDropboxTool<T>(
   toolName: string,
   endpoint: string,
   pathRoot: PathRoot | undefined,
+  context: ToolContext,
   callback: (client: Dropbox) => Promise<T>
 ): Promise<T> {
-  const context = getRequestContext()
-  const client = createDropboxClient(context.accessToken, {
+  const requestConfig = resolveRequestConfig(context.extraArgs, appConfig)
+  const delegation = await resolveDelegationSelectors(
+    requestConfig.accessToken,
+    requestConfig.email
+  )
+  const client = createDropboxClient(requestConfig.accessToken, {
     pathRoot,
-    selectUser: context.selectUser,
-    selectAdmin: context.selectAdmin
+    selectUser: delegation.selectUser,
+    selectAdmin: delegation.selectAdmin
   })
   const startedAt = Date.now()
 
@@ -44,10 +52,10 @@ export async function executeDropboxTool<T>(
 
     logger.info(
       {
-        requestId: context.requestId,
         toolName,
         latency_ms: Date.now() - startedAt,
-        dropbox_endpoint: endpoint
+        dropbox_endpoint: endpoint,
+        extraArgKeys: context.extraArgs ? Object.keys(context.extraArgs) : []
       },
       'Dropbox tool completed'
     )
@@ -57,9 +65,9 @@ export async function executeDropboxTool<T>(
     logger.error(
       {
         err: error,
-        requestId: context.requestId,
         toolName,
-        dropbox_endpoint: endpoint
+        dropbox_endpoint: endpoint,
+        extraArgKeys: context.extraArgs ? Object.keys(context.extraArgs) : []
       },
       'Dropbox tool failed'
     )
@@ -69,7 +77,7 @@ export async function executeDropboxTool<T>(
 }
 
 export async function callDropbox<T>(
-  endpoint: string,
+  _endpoint: string,
   operation: () => Promise<DropboxResponse<T>>
 ): Promise<DropboxResponse<T>> {
   return withDropboxRetry(operation)
@@ -100,21 +108,13 @@ export async function pollAsyncJob<T>(
     }
 
     if (tag === 'failed') {
-      throw new McpError(ErrorCode.InternalError, `Dropbox ${endpoint} async job failed`, {
-        code: 'dropbox_async_job_failed',
-        endpoint,
-        result: response.result
-      })
+      throw new UserError(`Dropbox ${endpoint} async job failed`)
     }
 
     await wait(pollIntervalMs)
   }
 
-  throw new McpError(ErrorCode.InternalError, `Dropbox ${endpoint} async job did not complete in time`, {
-    code: 'dropbox_async_job_timeout',
-    endpoint,
-    async_job_id: asyncJobId
-  })
+  throw new UserError(`Dropbox ${endpoint} async job did not complete in time`)
 }
 
 export function parseBase64Content(content: string): Buffer {
@@ -127,7 +127,7 @@ export function buildDirectDownloadUrl(sharedUrl: string): string {
   return url.toString()
 }
 
-export function createToolTextResult(payload: unknown): CallToolResult {
+export function createToolTextResult(payload: unknown): ContentResult {
   return {
     content: [
       {
