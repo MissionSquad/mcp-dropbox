@@ -42,6 +42,18 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
   async authorize(client: OAuthClientInformationFull, params: AuthorizationParams, res: Response): Promise<void> {
     const sessionId = getBrowserSessionId(res.req)
 
+    logger.info(
+      {
+        clientId: client.client_id,
+        redirectUri: params.redirectUri,
+        resource: params.resource?.toString(),
+        hasState: Boolean(params.state),
+        scopeCount: params.scopes?.length ?? 0,
+        hasBrowserSession: Boolean(sessionId)
+      },
+      'MCP OAuth authorize request received'
+    )
+
     if (!sessionId) {
       res.redirect(302, this.buildDropboxStartUrl(client, params).toString())
       return
@@ -50,6 +62,7 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
     const session = await this.database.getBrowserSession(sessionId)
 
     if (!session) {
+      logger.warn({ clientId: client.client_id, sessionId }, 'Browser session missing or expired during authorize')
       clearBrowserSessionCookie(res)
       res.redirect(302, this.buildDropboxStartUrl(client, params).toString())
       return
@@ -76,6 +89,14 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
       targetUrl.searchParams.set('state', params.state)
     }
 
+    logger.info(
+      {
+        clientId: client.client_id,
+        linkedAccountId: session.linkedAccountId,
+        redirectUri: params.redirectUri
+      },
+      'Issued MCP authorization code'
+    )
     res.redirect(302, targetUrl.toString())
   }
 
@@ -96,6 +117,14 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
     redirectUri?: string,
     resource?: URL
   ): Promise<OAuthTokens> {
+    logger.info(
+      {
+        clientId: client.client_id,
+        hasRedirectUri: Boolean(redirectUri),
+        resource: resource?.toString()
+      },
+      'Exchanging MCP authorization code'
+    )
     const record = await this.database.consumeAuthorizationCode(authorizationCode)
 
     if (!record) {
@@ -137,6 +166,14 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
     scopes?: string[],
     resource?: URL
   ): Promise<OAuthTokens> {
+    logger.info(
+      {
+        clientId: client.client_id,
+        scopeCount: scopes?.length ?? 0,
+        resource: resource?.toString()
+      },
+      'Exchanging MCP refresh token'
+    )
     const exchanged = await this.database.exchangeMcpRefreshToken({
       refreshToken,
       clientId: client.client_id,
@@ -201,10 +238,29 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
       appConfig.dropboxScopes
     )
 
+    logger.info(
+      {
+        nextUrl,
+        state,
+        redirectUri: appConfig.dropboxRedirectUri,
+        scopeCount: appConfig.dropboxScopes.length
+      },
+      'Prepared Dropbox OAuth authorization URL'
+    )
+
     return new URL(String(authUrl))
   }
 
   async handleDropboxCallback(input: { code?: string; state?: string; error?: string; errorDescription?: string }, res: Response): Promise<void> {
+    logger.info(
+      {
+        hasCode: Boolean(input.code),
+        hasState: Boolean(input.state),
+        error: input.error
+      },
+      'Handling Dropbox OAuth callback'
+    )
+
     if (input.error) {
       res.status(400).send(
         renderHtml(
@@ -222,6 +278,7 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
     const stateRecord = await this.database.consumeDropboxOauthState(input.state)
 
     if (!stateRecord) {
+      logger.warn({ state: input.state }, 'Dropbox OAuth state missing or expired')
       throw new InvalidRequestError('Dropbox OAuth state is invalid or expired')
     }
 
@@ -253,6 +310,15 @@ export class DropboxMcpOAuthProvider implements OAuthServerProvider {
     const sessionId = await this.database.createBrowserSession(linkedAccount.id, appConfig.sessionTtlHours)
     setBrowserSessionCookie(res, sessionId)
 
+    logger.info(
+      {
+        linkedAccountId: linkedAccount.id,
+        dropboxAccountId: linkedAccount.dropboxAccountId,
+        email: linkedAccount.email,
+        nextUrl: stateRecord.nextUrl
+      },
+      'Dropbox OAuth callback completed successfully'
+    )
     res.redirect(302, stateRecord.nextUrl)
   }
 
