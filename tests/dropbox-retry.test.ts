@@ -1,7 +1,7 @@
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it } from 'vitest'
 import { DropboxResponseError } from 'dropbox'
 
-import { withDropboxRetry } from '../../src/dropbox/retry.js'
+import { withDropboxRetry } from '../src/dropbox/retry.js'
 
 describe('withDropboxRetry', () => {
   it('retries 429 responses before succeeding', async () => {

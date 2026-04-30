@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { FastMCP } from '@missionsquad/fastmcp'
 import type { files } from 'dropbox'
 
 import { uploadArgsSchema } from './schemas.js'
@@ -76,15 +76,13 @@ async function uploadWithSession(
   return finish.result
 }
 
-export function registerUploadDownloadTools(server: McpServer): void {
-  server.registerTool(
-    'upload_file',
-    {
-      description: 'Upload a Dropbox file up to 150 MB using /2/files/upload',
-      inputSchema: uploadArgsSchema
-    },
-    async args => {
-      return executeDropboxTool('upload_file', '/2/files/upload', args.path_root, async client => {
+export function registerUploadDownloadTools(server: FastMCP<undefined>): void {
+  server.addTool({
+    name: 'upload_file',
+    description: 'Upload a Dropbox file up to 150 MB using /2/files/upload',
+    parameters: uploadArgsSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('upload_file', '/2/files/upload', args.path_root, context, async client => {
         const buffer = parseBase64Content(args.content)
 
         if (buffer.length > maxDirectUploadBytes) {
@@ -100,16 +98,14 @@ export function registerUploadDownloadTools(server: McpServer): void {
         return createToolTextResult(response.result)
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'upload_file_chunked',
-    {
-      description: 'Upload a Dropbox file with automatic direct-vs-session routing based on payload size',
-      inputSchema: uploadFileChunkedInputSchema
-    },
-    async args => {
-      return executeDropboxTool('upload_file_chunked', '/2/files/upload_session/*', args.path_root, async client => {
+  server.addTool({
+    name: 'upload_file_chunked',
+    description: 'Upload a Dropbox file with automatic direct-vs-session routing based on payload size',
+    parameters: uploadFileChunkedInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('upload_file_chunked', '/2/files/upload_session/*', args.path_root, context, async client => {
         const buffer = parseBase64Content(args.content)
 
         if (buffer.length <= maxDirectUploadBytes) {
@@ -133,16 +129,14 @@ export function registerUploadDownloadTools(server: McpServer): void {
         })
       })
     }
-  )
+  })
 
-  server.registerTool(
-    'download_file',
-    {
-      description: 'Download a Dropbox file and return base64 content plus metadata and content_hash',
-      inputSchema: downloadFileInputSchema
-    },
-    async args => {
-      return executeDropboxTool('download_file', '/2/files/download', args.path_root, async client => {
+  server.addTool({
+    name: 'download_file',
+    description: 'Download a Dropbox file and return base64 content plus metadata and content_hash',
+    parameters: downloadFileInputSchema,
+    execute: async (args, context) => {
+      return executeDropboxTool('download_file', '/2/files/download', args.path_root, context, async client => {
         const response = await callDropbox('/2/files/download', () => client.filesDownload({
           path: normalizeDropboxPath(args.path)
         }))
@@ -156,5 +150,5 @@ export function registerUploadDownloadTools(server: McpServer): void {
         })
       })
     }
-  )
+  })
 }
