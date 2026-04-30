@@ -2,11 +2,15 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 RUN npm ci --ignore-scripts
 
 COPY . .
+RUN npm rebuild sqlite3 --build-from-source
 RUN npm run build
+RUN npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
 
@@ -20,8 +24,7 @@ ENV SQLITE_PATH=/data/mcp-dropbox.sqlite
 RUN mkdir -p /data && chown -R node:node /data /app
 
 COPY --from=build /app/package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
-
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY --from=build /app/README.md ./README.md
 COPY --from=build /app/LICENSE ./LICENSE
