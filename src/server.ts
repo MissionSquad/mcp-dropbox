@@ -29,6 +29,7 @@ export interface RunningServer {
 
 export async function createServer(): Promise<RunningServer> {
   const app = createMcpExpressApp({ host: appConfig.host })
+  app.set('trust proxy', appConfig.trustProxy)
   const database = new AppDatabase(appConfig.sqlitePath, appConfig.encryptionKey)
   await database.init()
   await database.cleanupExpiredState()
@@ -64,6 +65,37 @@ export async function createServer(): Promise<RunningServer> {
   const originGuard = createOriginGuard()
   const transports = new Map<string, SessionEntry>()
 
+  app.use((req, res, next) => {
+    const startedAt = Date.now()
+
+    logger.info(
+      {
+        method: req.method,
+        path: req.path,
+        ip: req.ip,
+        forwardedFor: req.headers['x-forwarded-for'],
+        origin: req.headers.origin,
+        hasAuthorization: typeof req.headers.authorization === 'string'
+      },
+      'HTTP request started'
+    )
+
+    res.on('finish', () => {
+      logger.info(
+        {
+          method: req.method,
+          path: req.path,
+          statusCode: res.statusCode,
+          latency_ms: Date.now() - startedAt,
+          ip: req.ip
+        },
+        'HTTP request completed'
+      )
+    })
+
+    next()
+  })
+
   app.get('/healthz', (_req, res) => {
     res.status(200).json({ ok: true })
   })
@@ -73,10 +105,12 @@ export async function createServer(): Promise<RunningServer> {
       const nextUrl = typeof req.query.next === 'string' ? req.query.next : undefined
 
       if (!nextUrl) {
+        logger.warn({ query: req.query }, 'Dropbox authorization start missing next URL')
         res.status(400).send('Missing next URL')
         return
       }
 
+      logger.info({ nextUrl }, 'Starting Dropbox OAuth redirect')
       const authorizationUrl = await oauthProvider.startDropboxAuthorization(nextUrl)
       res.redirect(302, authorizationUrl.toString())
     } catch (error) {
@@ -97,6 +131,17 @@ export async function createServer(): Promise<RunningServer> {
         res
       )
     } catch (error) {
+      logger.error(
+        {
+          err: error,
+          query: {
+            hasCode: typeof req.query.code === 'string',
+            hasState: typeof req.query.state === 'string',
+            error: typeof req.query.error === 'string' ? req.query.error : undefined
+          }
+        },
+        'Dropbox OAuth callback failed'
+      )
       next(error)
     }
   })
@@ -219,4 +264,3 @@ export async function createServer(): Promise<RunningServer> {
     database
   }
 }
-

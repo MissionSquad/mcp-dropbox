@@ -6,6 +6,7 @@ dotenv.config()
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().optional(),
   HOST: z.string().optional(),
+  TRUST_PROXY: z.string().optional(),
   PUBLIC_BASE_URL: z.string().url(),
   MCP_PATH: z.string().optional(),
   LOG_LEVEL: z.string().optional(),
@@ -46,6 +47,30 @@ function parseCsv(value: string | undefined): string[] {
     .filter(entry => entry.length > 0)
 }
 
+function parseTrustProxy(value: string | undefined): boolean | number | string {
+  if (!value) {
+    return false
+  }
+
+  const normalized = value.trim().toLowerCase()
+
+  if (normalized === 'true' || normalized === '1') {
+    return true
+  }
+
+  if (normalized === 'false' || normalized === '0') {
+    return false
+  }
+
+  const numeric = Number.parseInt(normalized, 10)
+
+  if (!Number.isNaN(numeric) && String(numeric) === normalized) {
+    return numeric
+  }
+
+  return value.trim()
+}
+
 const publicBaseUrl = normalizeBaseUrl(env.PUBLIC_BASE_URL)
 const mcpPath = env.MCP_PATH?.trim() || '/mcp'
 const dataDir = env.DATA_DIR?.trim() || '/data'
@@ -53,6 +78,7 @@ const dataDir = env.DATA_DIR?.trim() || '/data'
 export interface AppConfig {
   port: number
   host: string
+  trustProxy: boolean | number | string
   publicBaseUrl: string
   mcpPath: string
   logLevel: string
@@ -79,6 +105,7 @@ export interface AppConfig {
 export const appConfig: AppConfig = {
   port: env.PORT ?? 3000,
   host: env.HOST?.trim() || '0.0.0.0',
+  trustProxy: parseTrustProxy(env.TRUST_PROXY),
   publicBaseUrl,
   mcpPath,
   logLevel: env.LOG_LEVEL?.trim() || 'info',
@@ -116,4 +143,3 @@ export const appConfig: AppConfig = {
 export function getMcpEndpointUrl(): URL {
   return new URL(appConfig.mcpPath, `${appConfig.publicBaseUrl}/`)
 }
-
