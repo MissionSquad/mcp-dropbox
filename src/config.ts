@@ -54,11 +54,11 @@ function parseTrustProxy(value: string | undefined): boolean | number | string {
 
   const normalized = value.trim().toLowerCase()
 
-  if (normalized === 'true' || normalized === '1') {
+  if (normalized === 'true') {
     return true
   }
 
-  if (normalized === 'false' || normalized === '0') {
+  if (normalized === 'false') {
     return false
   }
 
