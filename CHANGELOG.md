@@ -7,6 +7,7 @@
 - External Streamable HTTP runtime on `/mcp`
 - MCP OAuth protected-resource metadata and authorization-server metadata endpoints
 - OAuth authorization, token, and revocation endpoints for MissionSquad external MCP auth
+- Dynamic client registration endpoint for MCP OAuth clients
 - Dropbox OAuth connect-start and callback endpoints with offline access
 - SQLite persistence on a mounted volume for OAuth and linked-account state
 - Encrypted persistence for Dropbox refresh tokens and cached access tokens
@@ -19,6 +20,7 @@
 ### Changed
 
 - Replaced the MissionSquad stdio hidden-secret runtime with an external HTTP OAuth architecture
+- OAuth client store now supports both static pre-registered clients and persisted dynamically registered clients
 - Replaced legacy tool names with the new surface, keeping `list_files` and `search_file_db` as deprecated aliases
 - Rewrote the README for external HTTP deployment and OAuth usage
 

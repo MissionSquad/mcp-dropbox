@@ -2,11 +2,14 @@ import type { OAuthClientInformationFull } from '@modelcontextprotocol/sdk/share
 import type { OAuthRegisteredClientsStore } from '@modelcontextprotocol/sdk/server/auth/clients.js'
 
 import { appConfig } from '../config.js'
+import type { AppDatabase } from '../persistence/database.js'
 
-export class StaticOauthClientsStore implements OAuthRegisteredClientsStore {
+export class OAuthClientsStore implements OAuthRegisteredClientsStore {
+  constructor(private readonly database: AppDatabase) {}
+
   async getClient(clientId: string): Promise<OAuthClientInformationFull | undefined> {
     if (clientId !== appConfig.oauthClientId) {
-      return undefined
+      return this.database.getOauthClient(clientId)
     }
 
     return {
@@ -18,5 +21,9 @@ export class StaticOauthClientsStore implements OAuthRegisteredClientsStore {
       scope: 'mcp:tools'
     }
   }
-}
 
+  async registerClient(client: Omit<OAuthClientInformationFull, 'client_id' | 'client_id_issued_at'> | OAuthClientInformationFull): Promise<OAuthClientInformationFull> {
+    const normalized = client as OAuthClientInformationFull
+    return this.database.saveOauthClient(normalized)
+  }
+}

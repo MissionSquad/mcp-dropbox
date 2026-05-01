@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto'
+import type { OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js'
 
 import { SecretEncryptor } from '../crypto/secret-encryptor.js'
 import { logger } from '../logger.js'
@@ -59,6 +60,13 @@ export interface DropboxOauthStateRecord {
   state: string
   nextUrl: string
   expiresAt: string
+}
+
+export interface PersistedOauthClientRecord {
+  clientId: string
+  encryptedPayload: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface PersistedDropboxAuth {
@@ -157,6 +165,13 @@ export class AppDatabase {
         expires_at TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS oauth_clients (
+        client_id TEXT PRIMARY KEY,
+        encrypted_payload TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `)
   }
 
@@ -175,6 +190,42 @@ export class AppDatabase {
     )
 
     return state
+  }
+
+  async getOauthClient(clientId: string): Promise<OAuthClientInformationFull | undefined> {
+    const record = await this.sqlite.get<{
+      client_id: string
+      encrypted_payload: string
+    }>(`SELECT client_id, encrypted_payload FROM oauth_clients WHERE client_id = ?`, [clientId])
+
+    if (!record) {
+      return undefined
+    }
+
+    return JSON.parse(this.encryptor.decrypt(record.encrypted_payload)) as OAuthClientInformationFull
+  }
+
+  async saveOauthClient(client: OAuthClientInformationFull): Promise<OAuthClientInformationFull> {
+    const createdAt = nowIso()
+    const updatedAt = nowIso()
+    const encryptedPayload = this.encryptor.encrypt(JSON.stringify(client))
+
+    await this.sqlite.run(
+      `
+        INSERT INTO oauth_clients (
+          client_id,
+          encrypted_payload,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?)
+        ON CONFLICT(client_id) DO UPDATE SET
+          encrypted_payload = excluded.encrypted_payload,
+          updated_at = excluded.updated_at
+      `,
+      [client.client_id, encryptedPayload, createdAt, updatedAt]
+    )
+
+    return client
   }
 
   async consumeDropboxOauthState(state: string): Promise<DropboxOauthStateRecord | null> {

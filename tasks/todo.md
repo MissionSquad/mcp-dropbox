@@ -135,3 +135,13 @@
   - `/oauth/dropbox/start` generating a Dropbox offline-authorization redirect URL
 - Container build passes with `docker build -t mcp-dropbox-http-refactor-check .`
 - Full interactive Dropbox OAuth browser flow on the new external server is not yet proven in this terminal session
+
+## 2026-04-30 Dynamic Client Registration
+
+- [x] Verify MCP authorization spec requirements for DCR from the local spec
+- [x] Implement persisted OAuth client registration storage in SQLite
+- [x] Add SDK-backed DCR support by implementing `registerClient`
+- [x] Add tests for dynamic client registration persistence and metadata advertisement
+- [x] Re-run `npm run build`
+- [x] Re-run `npm test`
+- [x] Re-run `npm run typecheck`
