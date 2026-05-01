@@ -1,6 +1,6 @@
 {
   "name": "@missionsquad/mcp-dropbox",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "A Model Context Protocol server for Dropbox integration",
   "type": "module",
   "bin": {

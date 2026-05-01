@@ -8,7 +8,7 @@ import { InvalidGrantError, InvalidRequestError, InvalidTokenError } from '@mode
 
 import { appConfig, getMcpEndpointUrl } from '../config.js'
 import { AppDatabase } from '../persistence/database.js'
-import { StaticOauthClientsStore } from './client-store.js'
+import { OAuthClientsStore } from './client-store.js'
 import { clearBrowserSessionCookie, getBrowserSessionId, setBrowserSessionCookie } from './cookies.js'
 import { logger } from '../logger.js'
 import { resourceUrlFromServerUrl, checkResourceAllowed } from '@modelcontextprotocol/sdk/shared/auth-utils.js'
@@ -35,9 +35,11 @@ function renderHtml(title: string, body: string): string {
 }
 
 export class DropboxMcpOAuthProvider implements OAuthServerProvider {
-  readonly clientsStore = new StaticOauthClientsStore()
+  readonly clientsStore: OAuthClientsStore
 
-  constructor(private readonly database: AppDatabase) {}
+  constructor(private readonly database: AppDatabase) {
+    this.clientsStore = new OAuthClientsStore(database)
+  }
 
   async authorize(client: OAuthClientInformationFull, params: AuthorizationParams, res: Response): Promise<void> {
     const sessionId = getBrowserSessionId(res.req)

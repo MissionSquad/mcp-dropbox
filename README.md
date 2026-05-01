@@ -36,6 +36,7 @@ OAuth and discovery endpoints:
 - `/authorize`
 - `/token`
 - `/revoke`
+- `/register`
 - `/oauth/dropbox/start`
 - `/oauth/dropbox/callback`
 
@@ -95,10 +96,14 @@ Register the deployed server as:
 }
 ```
 
-The first implementation is intended to use external OAuth `registrationMode: "manual"` with the configured:
+OAuth registration modes now supported by the server:
 
-- `MCP_OAUTH_CLIENT_ID`
-- `MCP_OAUTH_CLIENT_SECRET`
+- pre-registered manual client credentials using:
+  - `MCP_OAUTH_CLIENT_ID`
+  - `MCP_OAUTH_CLIENT_SECRET`
+- dynamic client registration through `/register`
+
+The server advertises `registration_endpoint` in OAuth metadata when DCR is available.
 
 ## Local Development
 
